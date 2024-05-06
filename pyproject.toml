@@ -37,7 +37,7 @@ comet-mbr = 'comet.cli.mbr:mbr_command'
 
 [tool.poetry.dependencies]
 python = "^3.8.0"
-sentencepiece = "^0.1.96"
+sentencepiece = {git = "git@github.com:laniqo-internal/sentencepiece.git", subdirectory = "python"}
 pandas = ">=1.4.1"
 transformers = "^4.17"
 pytorch-lightning = "^2.0.0"
