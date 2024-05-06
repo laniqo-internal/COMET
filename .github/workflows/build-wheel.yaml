@@ -26,7 +26,7 @@ jobs:
         sed -E -i "s/^(version\s+=\s+)\"(([0-9]+|\.)+)\"$/\1\"\2+laniqo\"/" pyproject.toml
     - name: Build package
       run: |
-        poetry source add --priority=default laniqo "${{ vars.GLOBAL_PYPI_LANIQO_URL }}"
+        poetry source add --priority=supplemental laniqo "${{ vars.GLOBAL_PYPI_LANIQO_URL }}"
         poetry build -n
     - name: Publish to index
       run: |

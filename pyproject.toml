@@ -9,7 +9,7 @@ homepage = "https://github.com/Unbabel/COMET"
 repository = "https://github.com/Unbabel/COMET"
 documentation = "https://unbabel.github.io/COMET/html/index.html"
 keywords = [
-    "Machine Translation", 
+    "Machine Translation",
     "Evaluation",
     "Unbabel",
     "COMET"
@@ -37,7 +37,7 @@ comet-mbr = 'comet.cli.mbr:mbr_command'
 
 [tool.poetry.dependencies]
 python = "^3.8.0"
-sentencepiece = "^0.1.96"
+sentencepiece = {version = "0.2.1+laniqo", source = "laniqo"}
 pandas = ">=1.4.1"
 transformers = "^4.17"
 pytorch-lightning = "^2.0.0"
@@ -55,6 +55,16 @@ protobuf = "^4.24.4"
 sphinx-markdown-tables = "0.0.15"
 coverage = "^5.5"
 scikit-learn = "^1.0"
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
+
+
+[[tool.poetry.source]]
+name = "laniqo"
+url = "https://europe-west4-python.pkg.dev/laniqo-cr/pypi/simple/"
+priority = "supplemental"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
