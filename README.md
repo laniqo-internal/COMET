@@ -9,9 +9,9 @@
 </p>
 
 **NEWS:** 
-1) [AfriCOMET](https://arxiv.org/pdf/2311.09828.pdf) released, a new model to embrace under-resourced African Languages.
-2) We released our new eXplainable COMET models ([XCOMET-XL](https://huggingface.co/Unbabel/XCOMET-XL) and [-XXL](https://huggingface.co/Unbabel/XCOMET-XXL)) which along with quality scores detects which errors in the translation are minor, major or critical according to MQM typology
-3) We release [CometKiwi -XL (3.5B)](https://huggingface.co/Unbabel/wmt23-cometkiwi-da-xl) and [-XXL (10.7B)](https://huggingface.co/Unbabel/wmt23-cometkiwi-da-xxl) QE models. These models were the best performing QE models on the WMT23 QE shared task.
+1) We added a new method to extract free-text explanations from XCOMET outputs! [Check this section](https://github.com/Unbabel/COMET?tab=readme-ov-file#explaining-translation-errors)
+2) We now support [DocCOMET](https://statmt.org/wmt22/pdf/2022.wmt-1.6.pdf), a document-level extension of COMET which can utilize contextual information. Using context improves accuracy on discourse phenomena tasks as well as referenceless evaluation of [chat translation quality](https://arxiv.org/pdf/2403.08314).
+3) We released our new eXplainable COMET models ([XCOMET-XL](https://huggingface.co/Unbabel/XCOMET-XL) and [-XXL](https://huggingface.co/Unbabel/XCOMET-XXL)) which along with quality scores detects which errors in the translation are minor, major or critical according to MQM typology
 
 Please check all available models [here](https://github.com/Unbabel/COMET/blob/master/MODELS.md)
  
@@ -41,6 +41,25 @@ For development, you can run the CLI tools directly, e.g.,
 PYTHONPATH=. ./comet/cli/score.py
 ```
 
+# Table of Contents
+
+1. [Scoring MT outputs](#scoring-mt-outputs)
+    1. [CLI Usage](#cli-usage)
+        1. [Basic scoring command](#basic-scoring-command)
+        2. [Reference-free evaluation](#reference-free-evaluation)
+        3. [Comparing multiple systems](#comparing-multiple-systems)
+        4. [Minimum Bayes Risk Decoding](#minimum-bayes-risk-decoding)
+2. [COMET Models](#comet-models)
+    1. [Interpreting Scores](#interpreting-scores)
+    2. [Languages Covered](#languages-covered)
+    3. [COMET for African Languages](#comet-for-african-languages)
+    4. [Scoring within Python](#scoring-within-python)
+    5. [Explaining Translation Errors](#explaining-translation-errors)
+3. [Train your own Metric](#train-your-own-metric)
+4. [Unittest](#unittest)
+5. [Publications](#publications)
+
+
 # Scoring MT outputs:
 
 ## CLI Usage:
@@ -54,7 +73,7 @@ echo -e "Can it be delivered within 10 to 15 minutes?\nCan you send it for 10 to
 echo -e "Can it be delivered between 10 to 15 minutes?\nCan it be delivered between 10 to 15 minutes?" >> ref.txt
 ```
 
-Basic scoring command:
+### Basic scoring command:
 ```bash
 comet-score -s src.txt -t hyp1.txt -r ref.txt
 ```
@@ -77,6 +96,19 @@ WMT test sets via [SacreBLEU](https://github.com/mjpost/sacrebleu):
 comet-score -d wmt22:en-de -t PATH/TO/TRANSLATIONS
 ```
 
+Scoring with context:
+```bash
+echo -e "Pies made from apples like these. </s> Oh, they do look delicious.\nOh, they do look delicious." >> src.txt
+echo -e "Des tartes faites avec des pommes comme celles-ci. </s> Elles ont l’air delicieux.\nElles ont l’air delicieux" >> hyp1.txt
+echo -e "Des tartes faites avec des pommes comme celles-ci. </s> Ils ont l’air delicieux.\nIls ont l’air delicieux." >> hyp2.txt
+```
+
+where `</s>` is the separator token of the specific tokenizer (here: `xlm-roberta-large`) that the underlying model uses. 
+
+```bash
+comet-score -s src.txt -t hyp1.txt hyp2.txt --model Unbabel/wmt20-comet-qe-da --enable-context
+```
+
 If you are only interested in a system-level score use the following command:
 
 ```bash
@@ -89,7 +121,7 @@ comet-score -s src.txt -t hyp1.txt -r ref.txt --quiet --only_system
 comet-score -s src.txt -t hyp1.txt --model Unbabel/wmt22-cometkiwi-da
 ```
 
-**Note:** To use the `Unbabel/wmt22-cometkiwi-da-xl` you first have to acknowledge its license on [Hugging Face Hub](https://huggingface.co/Unbabel/Unbabel/wmt23-cometkiwi-da-xl).
+**Note:** To use the `Unbabel/wmt23-cometkiwi-da-xl` you first have to acknowledge its license on [Hugging Face Hub](https://huggingface.co/Unbabel/Unbabel/wmt23-cometkiwi-da-xl).
 
 ### Comparing multiple systems:
 
@@ -186,13 +218,56 @@ data = [
 ]
 # Call predict method:
 model_output = model.predict(data, batch_size=8, gpus=1)
-print(model_output)
-print(model_output.scores) # sentence-level scores
-print(model_output.system_score) # system-level score
-
-# Not all COMET models return metadata with detected errors.
-print(model_output.metadata.error_spans) # detected error spans
 ```
+
+As output, we get the following information:
+```python
+# Sentence-level scores (list)
+>>> model_output.scores
+[0.9822099208831787, 0.9599897861480713]
+
+# System-level score (float)
+>>> model_output.system_score
+0.971099853515625
+
+# Detected error spans (list of list of dicts)
+>>> model_output.metadata.error_spans
+[
+  [{'confidence': 0.4160953164100647,
+   'end': 21,
+   'severity': 'minor',
+   'start': 13,
+   'text': 'my food'}],
+  [{'confidence': 0.40004390478134155,
+   'end': 19,
+   'severity': 'minor',
+   'start': 3,
+   'text': 'you send it for'}]
+]
+```
+
+However, note that not all COMET models return metadata with detected error spans.
+
+
+## Explaining translation errors:
+
+Check [this notebook](https://gist.github.com/mtreviso/b618b499bc6de0414a3e11157e91cf02) for a minimal example on how you can combine xCOMET with [xTower](https://huggingface.co/sardinelab/xTower13B) to generate a natural language explanation for each error span. 
+
+For the Portuguese-English example above, we would call xTower with the following **prompt**:
+> You are provided with a Source, Translation, Translation quality analysis, and Translation quality score (weak, moderate, good, excellent, best). The Translation quality analysis contains a translation with marked error spans with different levels of severity (minor or major). Given this information, generate an explanation for each error and a fully correct translation. <br><br>
+> Portuguese source: Pode ser entregue dentro de 10 a 15 minutos? <br>
+> English translation: Can you send it for 10 to 15 minutes? <br>
+> Translation quality analysis: Can `<error1 severity='minor'>`you send it for`</error1>` 10 to 15 minutes? <br>
+> Translation quality score: excellent
+
+
+And get this as output:
+> Explanation for error1: The phrase "Can you send it for 10 to 15 minutes?" is a mistranslation of the original Portuguese sentence. The correct interpretation should focus on the delivery time rather than the duration of sending. The original sentence is asking about the delivery time, not the duration of sending. <br>
+> Translation correction: Can it be delivered within 10 to 15 minutes?
+
+
+For more information, check [xTower documentation](https://huggingface.co/sardinelab/xTower13B).
+
 
 # Train your own Metric: 
 
